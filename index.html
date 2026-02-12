@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echanj Plus - Konekte</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container" style="display: flex; flex-direction: column; justify-content: center; min-height: 100vh;">
+        <center><img src="https://i.postimg.cc/vTtVtB8P/20260205-163353-removebg-preview.png" width="150"></center>
+
+        <div id="login-section" class="card">
+            <h2>Konekte</h2>
+            <input type="email" id="login-email" placeholder="Email ou">
+            <div class="pass-group">
+                <input type="password" id="login-pass" placeholder="Modpas ou">
+                <i class="fa fa-eye" onclick="toggleView('login-pass')"></i>
+            </div>
+            <button class="btn-main" style="background:#007bff; color:white;" onclick="handleLogin()">Konekte</button>
+            <p onclick="toggleAuth()" style="cursor:pointer; color:blue; text-align:center;">Poko gen kont? Enskri</p>
+            <p onclick="showReset()" style="cursor:pointer; color:red; text-align:center;">Modpas bliye?</p>
+        </div>
+
+        <div id="signup-section" class="card hidden">
+            <h2>Kreye Kont</h2>
+            <input type="text" id="sign-name" placeholder="Non konplè">
+            <input type="tel" id="sign-phone" placeholder="Telefòn">
+            <input type="email" id="sign-email" placeholder="Email">
+            <div class="pass-group">
+                <input type="password" id="sign-pass" placeholder="Modpas">
+                <i class="fa fa-eye" onclick="toggleView('sign-pass')"></i>
+            </div>
+            <div style="margin: 10px 0;">
+                <input type="radio" name="sex" value="Gason" checked> Gason
+                <input type="radio" name="sex" value="Fi"> Fi
+            </div>
+            <button class="btn-main" style="background:#28a745; color:white;" onclick="handleSignup()">Enskri</button>
+            <p onclick="toggleAuth()" style="cursor:pointer; color:blue; text-align:center;">Mwen gen kont deja</p>
+        </div>
+
+        <div id="reset-section" class="card hidden">
+            <h3>Reyajiste Modpas</h3>
+            <input type="email" id="reset-email" placeholder="Mete imel ou">
+            <button class="btn-main" style="background:#333; color:white;" onclick="handleReset()">Voye Lyen</button>
+            <p onclick="hideReset()" style="cursor:pointer; text-align:center;">Retounen</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB1VTPakleoggsbLdpm_HS7nSb3A7A99Qw",
+            authDomain: "echanj-plus-778cd.firebaseapp.com",
+            projectId: "echanj-plus-778cd",
+            storageBucket: "echanj-plus-778cd.firebasestorage.app",
+            messagingSenderId: "111144762929",
+            appId: "1:111144762929:web:e64ce9a6da65781c289f10"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Fonksyon UI
+        window.toggleView = (id) => { const el = document.getElementById(id); el.type = el.type === "password" ? "text" : "password"; };
+        window.toggleAuth = () => { document.getElementById('login-section').classList.toggle('hidden'); document.getElementById('signup-section').classList.toggle('hidden'); };
+        window.showReset = () => { document.getElementById('login-section').classList.add('hidden'); document.getElementById('reset-section').classList.remove('hidden'); };
+        window.hideReset = () => { document.getElementById('login-section').classList.remove('hidden'); document.getElementById('reset-section').classList.add('hidden'); };
+
+        // Signup
+        window.handleSignup = async () => {
+            const email = document.getElementById('sign-email').value;
+            const pass = document.getElementById('sign-pass').value;
+            const name = document.getElementById('sign-name').value;
+            if(!email || !pass || !name) return alert("Ranpli tout chan yo!");
+
+            try {
+                const res = await createUserWithEmailAndPassword(auth, email, pass);
+                await sendEmailVerification(res.user);
+                await setDoc(doc(db, "users", res.user.uid), { name, balance: 0, phone: document.getElementById('sign-phone').value });
+                alert("Bwavo! Verifye imel ou anvan ou konekte.");
+                await signOut(auth);
+                location.reload();
+            } catch (e) { alert(e.message); }
+        };
+
+        // Login
+        window.handleLogin = async () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            try {
+                const res = await signInWithEmailAndPassword(auth, email, pass);
+                if(res.user.emailVerified) {
+                    alert("Bienvenue sur Echanj plus!");
+                    window.location.href = "home.html";
+                } else {
+                    alert("Verifye imel ou anvan!");
+                    await signOut(auth);
+                }
+            } catch (e) { alert("Done yo pa kòrèk"); }
+        };
+
+        // Reset
+        window.handleReset = () => {
+            const email = document.getElementById('reset-email').value;
+            sendPasswordResetEmail(auth, email).then(() => alert("Lyen an voye nan imel ou!")).catch(e => alert(e.message));
+        };
+    </script>
+</body>
+          </html>
+          
