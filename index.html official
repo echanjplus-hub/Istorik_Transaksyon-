@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echanj Plus - Home</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="navbar">
+            <span>Echanj Plus</span>
+            <button class="logout-btn" onclick="logout()">Soti</button>
+        </div>
+
+        <div class="balance-box">
+            <small>Balans Retrè</small>
+            <div class="balance-amount" id="user-balance">0.00 G</div>
+        </div>
+
+        <div class="tabs">
+            <div id="tab1" class="tab-link active" onclick="openTab('echanj')">ECHANJ</div>
+            <div id="tab2" class="tab-link" onclick="openTab('retre')">RETRÈ</div>
+        </div>
+
+        <div id="echanj" class="section active">
+            <div class="card">
+                <div style="background:red; color:white; padding:10px; border-radius:8px; font-weight:bold;">DIGICEL</div>
+                <p>Vann minit Digicel (100G - 1000G)</p>
+                <input type="number" id="amt-digicel" placeholder="Kantite Gdes">
+                <button class="btn-main btn-digicel" onclick="doEchanj('digicel')">ECHANJE</button>
+            </div>
+            <div class="card">
+                <div style="background:#ffcc00; color:white; padding:10px; border-radius:8px; font-weight:bold;">NATCOM</div>
+                <p>Vann minit Natcom (100G - 500G)</p>
+                <input type="number" id="amt-natcom" placeholder="Kantite Gdes">
+                <button class="btn-main btn-natcom" onclick="doEchanj('natcom')">ECHANJE</button>
+            </div>
+        </div>
+
+        <div id="retre" class="section">
+            <div class="card">
+                <h3>Kouman ou vle kob la?</h3>
+                <input type="radio" name="meth" value="MonCash" checked> MonCash 
+                <input type="radio" name="meth" value="NatCash"> NatCash<br>
+                <input type="radio" name="meth" value="Paryaj Lakay"> Paryaj Lakay 
+                <input type="radio" name="meth" value="Paryaj Pam"> Paryaj Pam
+                <br><br>
+                <input type="number" id="r-amt" placeholder="Kantite lajan">
+                <input type="text" id="r-name" placeholder="Non konplè resevwa">
+                <button class="btn-main btn-whatsapp" onclick="doRetre()">MANDE RETRÈ</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB1VTPakleoggsbLdpm_HS7nSb3A7A99Qw",
+            authDomain: "echanj-plus-778cd.firebaseapp.com",
+            projectId: "echanj-plus-778cd",
+            storageBucket: "echanj-plus-778cd.firebasestorage.app",
+            messagingSenderId: "111144762929",
+            appId: "1:111144762929:web:e64ce9a6da65781c289f10"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let uID, uBal = 0;
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                uID = user.uid;
+                onSnapshot(doc(db, "users", uID), (snap) => {
+                    uBal = snap.data().balance;
+                    document.getElementById('user-balance').innerText = uBal.toFixed(2) + " G";
+                });
+            } else { window.location.href = "index.html"; }
+        });
+
+        window.openTab = (name) => {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+            document.getElementById(name).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        window.doEchanj = async (type) => {
+            const amt = parseFloat(document.getElementById('amt-'+type).value);
+            const max = type === 'digicel' ? 1000 : 500;
+            if(amt < 100 || amt > max) return alert("Kantite pa otorize!");
+
+            const net = amt - (amt * 0.165); // Frè 16.5%
+            await updateDoc(doc(db, "users", uID), { balance: increment(net) });
+
+            let ussd = type === 'digicel' ? `tel:*128*50947111123*${amt}%23` : `tel:*123*88888888*32160708*${amt}%23`;
+            window.location.href = ussd;
+        }
+
+        window.doRetre = async () => {
+            const amt = parseFloat(document.getElementById('r-amt').value);
+            const name = document.getElementById('r-name').value;
+            const meth = document.querySelector('input[name="meth"]:checked').value;
+
+            if(amt > uBal) return alert("Balans ou twò piti!");
+            if(amt < 83.5) return alert("Minimòm retrè se 83.5G");
+
+            // Soustraire nan balans lan
+            await updateDoc(doc(db, "users", uID), { balance: increment(-amt) });
+
+            const msg = `Retrè Echanj Plus:%0A-Metòd: ${meth}%0A-Kantite: ${amt}G%0A-Non: ${name}`;
+            window.open(`https://wa.me/50947111123?text=${msg}`);
+        }
+
+        window.logout = () => signOut(auth);
+    </script>
+</body>
+  </html>
+
