@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
-import { getDatabase, ref, onValue, push, update } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+import { getDatabase, ref, onValue, update, push } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB1VTPakleoggsbLdpm_HS7nSb3A7A99Qw",
@@ -15,15 +15,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
-
 let activeUid = null;
 
-// --- AUTH ---
-document.getElementById('login-btn').onclick = () => {
-    const email = document.getElementById('admin-email').value;
-    const pass = document.getElementById('admin-pass').value;
-    signInWithEmailAndPassword(auth, email, pass).catch(err => alert("Erè Login"));
-};
+// --- KONEKSYON ---
+const loginBtn = document.getElementById('login-btn');
+if(loginBtn) {
+    loginBtn.onclick = () => {
+        const email = document.getElementById('admin-email').value;
+        const pass = document.getElementById('admin-pass').value;
+        signInWithEmailAndPassword(auth, email, pass).catch(err => alert("Erè: " + err.message));
+    };
+}
 
 document.getElementById('logout-btn').onclick = () => signOut(auth);
 
@@ -40,6 +42,7 @@ onAuthStateChanged(auth, (user) => {
 
 // --- INIT PANEL ---
 function initAdmin() {
+    // Rale tout itilizatè yo
     onValue(ref(db, 'users'), (snap) => {
         const list = document.getElementById('user-list');
         list.innerHTML = "";
@@ -48,27 +51,24 @@ function initAdmin() {
             const uid = child.key;
             const tr = document.createElement('tr');
             
-            const name = u.fullname || "Kliyan Senp";
-            const balance = u.balance || 0;
+            // Si fullname pa la, sèvi ak email oswa 'Itilizatè'
+            const name = u.fullname || u.email || "Itilizatè " + uid.substring(0,4);
 
             tr.innerHTML = `
-                <td><b>${name}</b> <span id="dot-${uid}" class="hidden"></span><br><small>${u.email || 'Pa gen email'}</small></td>
-                <td>${balance} G</td>
+                <td>
+                    <b>${name}</b> <span id="dot-${uid}" class="hidden"></span>
+                    <br><small>${u.email || 'Pa gen email'}</small>
+                </td>
+                <td>${u.balance || 0} G</td>
                 <td><button class="edit-btn">✏️</button></td>
             `;
 
-            // Lojik Alert (Pwen Vèt)
+            // Pwen vèt Notifikasyon
             onValue(ref(db, 'withdrawals'), (wSnap) => {
                 wSnap.forEach(wDoc => {
                     if(wDoc.val().uid === uid) document.getElementById(`dot-${uid}`).className = "notif-dot";
                 });
             });
-
-            tr.querySelector('.edit-btn').onclick = (e) => {
-                e.stopPropagation();
-                const v = prompt("Nouvo balans:", balance);
-                if(v) update(ref(db, `users/${uid}`), { balance: parseFloat(v) });
-            };
 
             tr.onclick = () => {
                 selectUser(uid, name);
@@ -79,7 +79,7 @@ function initAdmin() {
     });
 }
 
-// --- SELECT USER & HISTORY ---
+// --- SELEKSYON KLIYAN ---
 function selectUser(uid, name) {
     activeUid = uid;
     document.getElementById('empty-state').classList.add('hidden');
@@ -90,16 +90,24 @@ function selectUser(uid, name) {
     onValue(ref(db, 'withdrawals'), (snap) => {
         const h = document.getElementById('tx-history');
         h.innerHTML = "<h3>Istorik Tranzaksyon</h3>";
+        let found = false;
         snap.forEach(child => {
             const t = child.val();
             if(t.uid === uid) {
+                found = true;
                 const card = document.createElement('div');
                 card.className = 'tx-card';
-                card.innerHTML = `<b>${t.method || 'Retrè'}</b>: ${t.amount || t.Kantite || 0} G<br><small>${t.date || ''}</small>`;
+                // Ranje undefined: tcheke amount OSWA Kantite
+                const mantiye = t.amount || t.Kantite || 0;
+                card.innerHTML = `
+                    <b>${t.method || 'Tranzaksyon'}</b>: ${mantiye} G<br>
+                    <small>${t.date || ''}</small>
+                `;
                 card.onclick = () => openModal(t);
                 h.appendChild(card);
             }
         });
+        if(!found) h.innerHTML += "<p>Pa gen tranzaksyon.</p>";
     });
     loadChat(uid);
 }
@@ -108,7 +116,7 @@ function selectUser(uid, name) {
 function openModal(t) {
     const body = document.getElementById('full-details-body');
     body.innerHTML = `
-        <div class="detail-item"><b>Kliyan:</b> <span>${t.name || '---'}</span></div>
+        <div class="detail-item"><b>Non:</b> <span>${t.name || '---'}</span></div>
         <div class="detail-item"><b>Metòd:</b> <span>${t.method || '---'}</span></div>
         <div class="detail-item"><b>Kantite:</b> <span>${t.amount || t.Kantite || 0} G</span></div>
         <div class="detail-item"><b>Nimero:</b> <span>${t.phone || t.Nimero || '---'}</span></div>
@@ -116,8 +124,6 @@ function openModal(t) {
     `;
     document.getElementById('details-modal').classList.remove('hidden');
 }
-
-document.querySelector('.close-modal').onclick = () => document.getElementById('details-modal').classList.add('hidden');
 
 // --- CHAT ---
 function loadChat(uid) {
@@ -135,11 +141,15 @@ function loadChat(uid) {
 document.getElementById('send-msg').onclick = () => {
     const txt = document.getElementById('chat-input').value;
     if(txt && activeUid) {
-        push(ref(db, `messages/${activeUid}`), { text: txt, sender: 'admin' });
+        push(ref(db, `messages/${activeUid}`), { text: txt, sender: 'admin', time: Date.now() });
         document.getElementById('chat-input').value = "";
     }
 };
 
+document.querySelector('.close-modal').onclick = () => document.getElementById('details-modal').classList.add('hidden');
 document.getElementById('toggle-chat').onclick = () => document.getElementById('chat-widget').classList.toggle('chat-closed');
-setInterval(() => { document.getElementById('live-clock').innerText = new Date().toLocaleTimeString(); }, 1000);
-                
+setInterval(() => { 
+    if(document.getElementById('live-clock')) {
+        document.getElementById('live-clock').innerText = new Date().toLocaleTimeString(); 
+    }
+}, 1000);
